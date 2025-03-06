@@ -11,6 +11,10 @@ public class Board extends MouseAdapter {
     private boolean winnerFound;
     private String playerChoice;
     private boolean playerMoveDone;
+    private boolean multiplayerMode;
+    private boolean gameStarted;
+    private Rectangle singlePlayerButton;
+    private Rectangle multiPlayerButton;
 
     public Board() {
         board = new Square[3][3];
@@ -23,34 +27,44 @@ public class Board extends MouseAdapter {
         movesMade = 0;
         playerChoice = "";
         playerMoveDone = true;
+        multiplayerMode = false;
+        gameStarted = false;
+        singlePlayerButton = new Rectangle(200, 300, 400, 80);
+        multiPlayerButton = new Rectangle(200, 400, 400, 80);
     }
 
-    public void update() 
-    {
-        if (currentTurn.equals(" "))
-            currentTurn = api.changeTurns(currentTurn);
-        if (playerMoveDone) 
-        {
-        	if(board != null)
-        	{
-        		computerMove();
-        		currentTurn = api.changeTurns(currentTurn);
-                playerMoveDone = false;
-        	}
-        }
-        winner = api.winner(board, rows, cols);
-        if (winner != null && !winner.getPiece().getValue().equals(" ")) 
-        {
-            winnerFound = true;
-        }
-        if (winner == null && movesMade == 9) 
-        {
-            winnerFound = true;
+    public void update() {
+        if (!gameStarted) {
+            return; // Don't update anything if game hasn't started
         }
 
+        if (currentTurn.equals(" "))
+            currentTurn = api.changeTurns(currentTurn);
+            
+        // Computer's move in single player mode
+        if (!multiplayerMode && playerMoveDone) {
+            if (board != null) {
+                computerMove();
+                currentTurn = api.changeTurns(currentTurn);
+                playerMoveDone = false;
+            }
+        }
+        
+        winner = api.winner(board, rows, cols);
+        if (winner != null && !winner.getPiece().getValue().equals(" ")) {
+            winnerFound = true;
+        }
+        if (winner == null && movesMade == 9) {
+            winnerFound = true;
+        }
     }
 
     public void draw(Graphics g) {
+        if (!gameStarted) {
+            drawModeSelection(g);
+            return;
+        }
+
         g.setFont(new Font("Roboto", Font.BOLD, 180));
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
@@ -78,8 +92,42 @@ public class Board extends MouseAdapter {
         } else {
             g.setColor(Color.WHITE);
             g.setFont(new Font("Arial", Font.BOLD, 60));
-            g.drawString("Welcome to Tic-Tac-Toe!", 50, 60);
+            g.drawString(getGameModeTitle(), 50, 60);
+            
+            // Show current turn
+            g.setFont(new Font("Arial", Font.BOLD, 30));
+            String turnMessage = multiplayerMode ? 
+                "Player " + currentTurn + "'s Turn" : 
+                (currentTurn.equals("X") ? "Your Turn" : "Computer's Turn");
+            g.drawString(turnMessage, 320, 60);
         }
+    }
+    
+    private String getGameModeTitle() {
+        return multiplayerMode ? "Multiplayer Mode" : "Single Player Mode";
+    }
+    
+    private void drawModeSelection(Graphics g) {
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 60));
+        g.drawString("Tic-Tac-Toe", 250, 150);
+        
+        g.setFont(new Font("Arial", Font.BOLD, 40));
+        g.drawString("Select Game Mode:", 250, 250);
+        
+        // Single player button
+        g.setColor(new Color(17, 122, 101));
+        g.fill3DRect(singlePlayerButton.x, singlePlayerButton.y, 
+                    singlePlayerButton.width, singlePlayerButton.height, true);
+        g.setColor(Color.WHITE);
+        g.drawString("Single Player", singlePlayerButton.x + 100, singlePlayerButton.y + 50);
+        
+        // Multiplayer button
+        g.setColor(new Color(41, 128, 185));
+        g.fill3DRect(multiPlayerButton.x, multiPlayerButton.y, 
+                    multiPlayerButton.width, multiPlayerButton.height, true);
+        g.setColor(Color.WHITE);
+        g.drawString("Multiplayer", multiPlayerButton.x + 120, multiPlayerButton.y + 50);
     }
 
     public void askToPlayAgain(Graphics g) {
@@ -109,15 +157,38 @@ public class Board extends MouseAdapter {
         winner = null;
         playerChoice = "";
         playerMoveDone = true;
+        // Keep game mode and gameStarted values to restart in same mode
+    }
+    
+    public void startNewGame(boolean isMultiplayer) {
+        multiplayerMode = isMultiplayer;
+        gameStarted = true;
+        resetGame();
     }
 
     public void mousePressed(MouseEvent e) {
         int mx = e.getX();
         int my = e.getY();
+        
+        // Handle mode selection if game hasn't started
+        if (!gameStarted) {
+            if (singlePlayerButton.contains(mx, my)) {
+                startNewGame(false); // Start single player game
+                return;
+            } else if (multiPlayerButton.contains(mx, my)) {
+                startNewGame(true); // Start multiplayer game
+                return;
+            }
+            return; // Still in selection screen
+        }
+        
+        // Handle game board clicks
         if (getRowClicked(mx, my) != -1 && getColClicked(mx, my) != -1 && !winnerFound) {
             int squareRow = getRowClicked(mx, my);
             int squareCol = getColClicked(mx, my);
-            if (currentTurn.equals("X")) {
+            
+            // In multiplayer, both X and O are controlled by players
+            if (multiplayerMode || currentTurn.equals("X")) {
                 if (board[squareCol - 1][squareRow - 1].getPiece().getValue().equals(" ")) {
                     board[squareCol - 1][squareRow - 1].setPiece(new Piece(currentTurn, squareRow, squareCol));
                     movesMade++;
@@ -125,13 +196,15 @@ public class Board extends MouseAdapter {
                     playerMoveDone = true;
                 }
             }
-            // boardTester();
         }
+        
+        // Handle play again buttons
         if (winnerFound) {
             if (buttonClicked(e, 550, 20, "Yes")) {
                 resetGame();
             } else if (buttonClicked(e, 670, 20, "No")) {
-                System.exit(1);
+                gameStarted = false; // Go back to mode selection
+                resetGame();
             }
         }
     }
@@ -228,6 +301,7 @@ public class Board extends MouseAdapter {
         	}
         }
     }
+    
     public Square[][] copyBoard(Square[][] b) {
         Square[][] toReturn = new Square[rows][cols];
         for (int i = 0; i < rows; i++) 
