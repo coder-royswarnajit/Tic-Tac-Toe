@@ -15,6 +15,11 @@ public class Board extends MouseAdapter {
     private boolean gameStarted;
     private Rectangle singlePlayerButton;
     private Rectangle multiPlayerButton;
+    private Rectangle easyButton;
+    private Rectangle mediumButton;
+    private Rectangle hardButton;
+    private int difficultyLevel; // 0 = easy, 1 = medium, 2 = hard
+    private boolean difficultySelectionActive;
 
     public Board() {
         board = new Square[3][3];
@@ -31,6 +36,11 @@ public class Board extends MouseAdapter {
         gameStarted = false;
         singlePlayerButton = new Rectangle(200, 300, 400, 80);
         multiPlayerButton = new Rectangle(200, 400, 400, 80);
+        easyButton = new Rectangle(200, 250, 400, 60);
+        mediumButton = new Rectangle(200, 330, 400, 60);
+        hardButton = new Rectangle(200, 410, 400, 60);
+        difficultyLevel = 1; // Default to medium
+        difficultySelectionActive = false;
     }
 
     public void update() {
@@ -44,7 +54,7 @@ public class Board extends MouseAdapter {
         // Computer's move in single player mode
         if (!multiplayerMode && playerMoveDone) {
             if (board != null) {
-                computerMove();
+                computerMove(difficultyLevel);
                 currentTurn = api.changeTurns(currentTurn);
                 playerMoveDone = false;
             }
@@ -61,7 +71,11 @@ public class Board extends MouseAdapter {
 
     public void draw(Graphics g) {
         if (!gameStarted) {
-            drawModeSelection(g);
+            if (difficultySelectionActive) {
+                drawDifficultySelection(g);
+            } else {
+                drawModeSelection(g);
+            }
             return;
         }
 
@@ -104,7 +118,14 @@ public class Board extends MouseAdapter {
     }
     
     private String getGameModeTitle() {
-        return multiplayerMode ? "Multiplayer Mode" : "Single Player Mode";
+        if (multiplayerMode) {
+            return "Multiplayer Mode";
+        } else {
+            String difficulty = "Medium";
+            if (difficultyLevel == 0) difficulty = "Easy";
+            if (difficultyLevel == 2) difficulty = "Hard";
+            return "Single Player (" + difficulty + ")";
+        }
     }
     
     private void drawModeSelection(Graphics g) {
@@ -128,6 +149,43 @@ public class Board extends MouseAdapter {
                     multiPlayerButton.width, multiPlayerButton.height, true);
         g.setColor(Color.WHITE);
         g.drawString("Multiplayer", multiPlayerButton.x + 120, multiPlayerButton.y + 50);
+    }
+    
+    private void drawDifficultySelection(Graphics g) {
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 60));
+        g.drawString("Tic-Tac-Toe", 250, 150);
+        
+        g.setFont(new Font("Arial", Font.BOLD, 40));
+        g.drawString("Select Difficulty:", 260, 210);
+        
+        // Easy button
+        g.setColor(new Color(46, 204, 113));
+        g.fill3DRect(easyButton.x, easyButton.y, 
+                    easyButton.width, easyButton.height, true);
+        g.setColor(Color.WHITE);
+        g.drawString("Easy", easyButton.x + 160, easyButton.y + 40);
+        
+        // Medium button
+        g.setColor(new Color(241, 196, 15));
+        g.fill3DRect(mediumButton.x, mediumButton.y, 
+                    mediumButton.width, mediumButton.height, true);
+        g.setColor(Color.WHITE);
+        g.drawString("Medium", mediumButton.x + 140, mediumButton.y + 40);
+        
+        // Hard button
+        g.setColor(new Color(231, 76, 60));
+        g.fill3DRect(hardButton.x, hardButton.y, 
+                    hardButton.width, hardButton.height, true);
+        g.setColor(Color.WHITE);
+        g.drawString("Hard", hardButton.x + 160, hardButton.y + 40);
+        
+        // Back button
+        g.setColor(new Color(127, 140, 141));
+        g.fill3DRect(200, 490, 400, 40, true);
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.drawString("Back to Game Mode Selection", 260, 518);
     }
 
     public void askToPlayAgain(Graphics g) {
@@ -172,12 +230,37 @@ public class Board extends MouseAdapter {
         
         // Handle mode selection if game hasn't started
         if (!gameStarted) {
-            if (singlePlayerButton.contains(mx, my)) {
-                startNewGame(false); // Start single player game
-                return;
-            } else if (multiPlayerButton.contains(mx, my)) {
-                startNewGame(true); // Start multiplayer game
-                return;
+            if (difficultySelectionActive) {
+                // Handle difficulty selection
+                if (easyButton.contains(mx, my)) {
+                    difficultyLevel = 0; // Easy
+                    startNewGame(false);
+                    difficultySelectionActive = false;
+                    return;
+                } else if (mediumButton.contains(mx, my)) {
+                    difficultyLevel = 1; // Medium
+                    startNewGame(false);
+                    difficultySelectionActive = false;
+                    return;
+                } else if (hardButton.contains(mx, my)) {
+                    difficultyLevel = 2; // Hard
+                    startNewGame(false);
+                    difficultySelectionActive = false;
+                    return;
+                } else if (my >= 490 && my <= 530 && mx >= 200 && mx <= 600) {
+                    // Back button pressed
+                    difficultySelectionActive = false;
+                    return;
+                }
+            } else {
+                // Handle main menu selection
+                if (singlePlayerButton.contains(mx, my)) {
+                    difficultySelectionActive = true; // Show difficulty options
+                    return;
+                } else if (multiPlayerButton.contains(mx, my)) {
+                    startNewGame(true); // Start multiplayer game
+                    return;
+                }
             }
             return; // Still in selection screen
         }
@@ -204,16 +287,59 @@ public class Board extends MouseAdapter {
                 resetGame();
             } else if (buttonClicked(e, 670, 20, "No")) {
                 gameStarted = false; // Go back to mode selection
+                difficultySelectionActive = false;
                 resetGame();
             }
         }
     }
 
-    public void computerMove() {
+    public void computerMove(int difficulty) {
+        switch (difficulty) {
+            case 0: // Easy - Random moves
+                computerMoveEasy();
+                break;
+            case 1: // Medium - Original AI
+                computerMoveMedium();
+                break;
+            case 2: // Hard - Perfect play using minimax
+                computerMoveHard();
+                break;
+            default:
+                computerMoveMedium();
+        }
+    }
+    
+    // Easy difficulty - Makes random legal moves
+    private void computerMoveEasy() {
+        // Simple random placement
+        java.util.List<int[]> emptySquares = new java.util.ArrayList<>();
+        
+        // Find all empty squares
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                if (board[j][i].getPiece().getValue().equals(" ")) {
+                    emptySquares.add(new int[]{j, i});
+                }
+            }
+        }
+        
+        if (emptySquares.size() > 0) {
+            // Select a random empty square
+            int randomIndex = (int)(Math.random() * emptySquares.size());
+            int[] coords = emptySquares.get(randomIndex);
+            
+            board[coords[0]][coords[1]].setPiece(new Piece("O", coords[1] + 1, coords[0] + 1));
+            movesMade++;
+        }
+    }
+    
+    // Medium difficulty - Original AI logic
+    private void computerMoveMedium() {
         Square[][] tempBoard = copyBoard(board);
         Square tempWinner = null;
         String comp = "O";
         String playMove = "X";
+        
         /**
          * Take the winning move
          * */
@@ -227,79 +353,237 @@ public class Board extends MouseAdapter {
                     tempWinner = api.winner(tempBoard, 3, 3);
                     if (tempWinner != null && winner == null) 
                     {
-                    	board[j][i].setPiece(new Piece(comp, i + 1, j + 1));
-                    	movesMade++;
+                        board[j][i].setPiece(new Piece(comp, i + 1, j + 1));
+                        movesMade++;
                         return;
                     }
                     else if(winner == null)
                     {
-                    	tempBoard[j][i].setPiece(new Piece(" ",i+1,j+1));
-                    	tempWinner = null;
+                        tempBoard[j][i].setPiece(new Piece(" ",i+1,j+1));
+                        tempWinner = null;
                     }
                 }
             }
         }
+        
         /**
          * Stop the opponent from winning
          * */
         for(int i = 0;i<rows;i++)
         {
-        	for(int j = 0;j<cols;j++)
-        	{
-        		if (tempBoard[j][i].getPiece().getValue().equals(" ")) 
-        		{
-        			tempBoard[j][i].setPiece(new Piece(playMove, i + 1, j + 1));
-        			tempWinner = api.winner(tempBoard, rows, cols);
-        			if(tempWinner != null && winner == null)
-        			{
-        				board[j][i].setPiece(new Piece(comp,i+1,j+1));
-        				movesMade++;
-        				return;
-        			}
-        			else
-        			{
-        				tempBoard[j][i].setPiece(new Piece(" ",i+1,j+1));
-                    	tempWinner = null;
-        			}
-        		}
-        	}
+            for(int j = 0;j<cols;j++)
+            {
+                if (tempBoard[j][i].getPiece().getValue().equals(" ")) 
+                {
+                    tempBoard[j][i].setPiece(new Piece(playMove, i + 1, j + 1));
+                    tempWinner = api.winner(tempBoard, rows, cols);
+                    if(tempWinner != null && winner == null)
+                    {
+                        board[j][i].setPiece(new Piece(comp,i+1,j+1));
+                        movesMade++;
+                        return;
+                    }
+                    else
+                    {
+                        tempBoard[j][i].setPiece(new Piece(" ",i+1,j+1));
+                        tempWinner = null;
+                    }
+                }
+            }
         }
+        
         /**
          * Select center if open
          * */
         if(board[1][1].getPiece().getValue().equals(" "))
         {
-        	board[1][1].setPiece(new Piece(comp, 2,2));
-        	movesMade++;
-        	return;
+            board[1][1].setPiece(new Piece(comp, 2,2));
+            movesMade++;
+            return;
         }
+        
         /**
          * Select any corners
          * */
         for(int i = (int)(Math.random()*rows);i<rows;i++)
         {
-        	for(int j = (int)(Math.random()*rows);j<cols;j++)
-        	{
-        		if(board[j][i].getPiece().getValue().equals(" ") && (i != 1 || j != 1))
-        		{
-        			 board[j][i].setPiece(new Piece(comp, j,i));
-        			 movesMade++;
-        			 return;
-        		}
-        	}
+            for(int j = (int)(Math.random()*rows);j<cols;j++)
+            {
+                if(board[j][i].getPiece().getValue().equals(" ") && (i != 1 || j != 1))
+                {
+                     board[j][i].setPiece(new Piece(comp, i+1, j+1));
+                     movesMade++;
+                     return;
+                }
+            }
         }
+        
         for(int i = 0;i<rows;i++)
         {
-        	for(int j = 0;j<cols;j++)
-        	{
-        		if(board[j][i].getPiece().getValue().equals(" "))
-        		{
-        			board[j][i].setPiece(new Piece(comp, j,i));
-       			 	movesMade++;
-       			 	return;
-        		}
-        	}
+            for(int j = 0;j<cols;j++)
+            {
+                if(board[j][i].getPiece().getValue().equals(" "))
+                {
+                    board[j][i].setPiece(new Piece(comp, i+1, j+1));
+                    movesMade++;
+                    return;
+                }
+            }
         }
+    }
+    
+    // Hard difficulty - Minimax algorithm for perfect play
+    private void computerMoveHard() {
+        // Implement minimax algorithm for unbeatable AI
+        int[] bestMove = findBestMove();
+        if (bestMove[0] != -1 && bestMove[1] != -1) {
+            board[bestMove[1]][bestMove[0]].setPiece(new Piece("O", bestMove[0] + 1, bestMove[1] + 1));
+            movesMade++;
+        }
+    }
+    
+    // Minimax helper methods for Hard difficulty
+    private int[] findBestMove() {
+        int bestVal = Integer.MIN_VALUE;
+        int[] bestMove = {-1, -1};
+        
+        // Traverse all cells, evaluate minimax function for all empty cells
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                // Check if cell is empty
+                if (board[j][i].getPiece().getValue().equals(" ")) {
+                    // Make the move
+                    board[j][i].setPiece(new Piece("O", i + 1, j + 1));
+                    
+                    // Compute evaluation function for this move
+                    int moveVal = minimax(board, 0, false);
+                    
+                    // Undo the move
+                    board[j][i].setPiece(new Piece(" ", i + 1, j + 1));
+                    
+                    // If the value of the current move is more than the best value,
+                    // update best
+                    if (moveVal > bestVal) {
+                        bestMove[0] = i;
+                        bestMove[1] = j;
+                        bestVal = moveVal;
+                    }
+                }
+            }
+        }
+        
+        return bestMove;
+    }
+    
+    private int minimax(Square[][] board, int depth, boolean isMaximizing) {
+        // Check if the game is over
+        int score = evaluate(board);
+        
+        // If Maximizer has won the game, return positive score
+        if (score == 10)
+            return score - depth;
+            
+        // If Minimizer has won the game, return negative score
+        if (score == -10)
+            return score + depth;
+            
+        // If there are no more moves and no winner, it's a tie
+        if (!isMovesLeft(board))
+            return 0;
+            
+        if (isMaximizing) {
+            int best = Integer.MIN_VALUE;
+            
+            // Traverse all cells
+            for (int i = 0; i < rows; i++) {
+                for (int j = 0; j < cols; j++) {
+                    // Check if cell is empty
+                    if (board[j][i].getPiece().getValue().equals(" ")) {
+                        // Make the move
+                        board[j][i].setPiece(new Piece("O", i + 1, j + 1));
+                        
+                        // Call minimax recursively and choose the maximum value
+                        best = Math.max(best, minimax(board, depth + 1, !isMaximizing));
+                        
+                        // Undo the move
+                        board[j][i].setPiece(new Piece(" ", i + 1, j + 1));
+                    }
+                }
+            }
+            return best;
+        } else {
+            int best = Integer.MAX_VALUE;
+            
+            // Traverse all cells
+            for (int i = 0; i < rows; i++) {
+                for (int j = 0; j < cols; j++) {
+                    // Check if cell is empty
+                    if (board[j][i].getPiece().getValue().equals(" ")) {
+                        // Make the move
+                        board[j][i].setPiece(new Piece("X", i + 1, j + 1));
+                        
+                        // Call minimax recursively and choose the minimum value
+                        best = Math.min(best, minimax(board, depth + 1, !isMaximizing));
+                        
+                        // Undo the move
+                        board[j][i].setPiece(new Piece(" ", i + 1, j + 1));
+                    }
+                }
+            }
+            return best;
+        }
+    }
+    
+    private boolean isMovesLeft(Square[][] board) {
+        for (int i = 0; i < rows; i++)
+            for (int j = 0; j < cols; j++)
+                if (board[j][i].getPiece().getValue().equals(" "))
+                    return true;
+        return false;
+    }
+    
+    private int evaluate(Square[][] board) {
+        // Check for victory in rows
+        for (int i = 0; i < rows; i++) {
+            if (board[i][0].getPiece().getValue().equals(board[i][1].getPiece().getValue()) &&
+                board[i][1].getPiece().getValue().equals(board[i][2].getPiece().getValue())) {
+                if (board[i][0].getPiece().getValue().equals("O"))
+                    return 10;
+                else if (board[i][0].getPiece().getValue().equals("X"))
+                    return -10;
+            }
+        }
+        
+        // Check for victory in columns
+        for (int j = 0; j < cols; j++) {
+            if (board[0][j].getPiece().getValue().equals(board[1][j].getPiece().getValue()) &&
+                board[1][j].getPiece().getValue().equals(board[2][j].getPiece().getValue())) {
+                if (board[0][j].getPiece().getValue().equals("O"))
+                    return 10;
+                else if (board[0][j].getPiece().getValue().equals("X"))
+                    return -10;
+            }
+        }
+        
+        // Check for victory in diagonals
+        if (board[0][0].getPiece().getValue().equals(board[1][1].getPiece().getValue()) &&
+            board[1][1].getPiece().getValue().equals(board[2][2].getPiece().getValue())) {
+            if (board[0][0].getPiece().getValue().equals("O"))
+                return 10;
+            else if (board[0][0].getPiece().getValue().equals("X"))
+                return -10;
+        }
+        
+        if (board[0][2].getPiece().getValue().equals(board[1][1].getPiece().getValue()) &&
+            board[1][1].getPiece().getValue().equals(board[2][0].getPiece().getValue())) {
+            if (board[0][2].getPiece().getValue().equals("O"))
+                return 10;
+            else if (board[0][2].getPiece().getValue().equals("X"))
+                return -10;
+        }
+        
+        // If no winner, return 0
+        return 0;
     }
     
     public Square[][] copyBoard(Square[][] b) {
@@ -311,7 +595,7 @@ public class Board extends MouseAdapter {
                 Piece p = b[i][j].getPiece();
                 int row = b[i][j].getRow();
                 int col = b[i][j].getCol();
-                toReturn[i][j] = new Square(row, col, new Piece(p.getValue(),p.getRow(),p.getCol()));
+                toReturn[i][j] = new Square(row, col, new Piece(p.getValue(), p.getRow(), p.getCol()));
             }
         }
         return toReturn;
@@ -359,18 +643,5 @@ public class Board extends MouseAdapter {
             }
         }
         return -1;
-    }
-
-    // delete later
-    private void boardTester(Square[][] board) 
-    {
-        System.out.println("\n");
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                System.out.print(board[i][j].getPiece() + " ");
-            }
-            System.out.println();
-        }
-        System.out.println("\n");
     }
 }
