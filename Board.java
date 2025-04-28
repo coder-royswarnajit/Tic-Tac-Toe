@@ -301,7 +301,7 @@ public class Board extends MouseAdapter {
             case 1: // Medium - Original AI
                 computerMoveMedium();
                 break;
-            case 2: // Hard - Perfect play using minimax
+            case 2: // Hard - Perfect play using minimax with alpha-beta pruning
                 computerMoveHard();
                 break;
             default:
@@ -432,7 +432,7 @@ public class Board extends MouseAdapter {
         }
     }
     
-    // Hard difficulty - Minimax algorithm for perfect play
+    // Hard difficulty - Minimax algorithm with alpha-beta pruning for perfect play
     private void computerMoveHard() {
         // Implement minimax algorithm for unbeatable AI
         int[] bestMove = findBestMove();
@@ -455,8 +455,8 @@ public class Board extends MouseAdapter {
                     // Make the move
                     board[j][i].setPiece(new Piece("O", i + 1, j + 1));
                     
-                    // Compute evaluation function for this move
-                    int moveVal = minimax(board, 0, false);
+                    // Compute evaluation function for this move using alpha-beta pruning
+                    int moveVal = minimax(board, 0, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
                     
                     // Undo the move
                     board[j][i].setPiece(new Piece(" ", i + 1, j + 1));
@@ -475,7 +475,8 @@ public class Board extends MouseAdapter {
         return bestMove;
     }
     
-    private int minimax(Square[][] board, int depth, boolean isMaximizing) {
+    // Modified minimax algorithm with alpha-beta pruning
+    private int minimax(Square[][] board, int depth, boolean isMaximizing, int alpha, int beta) {
         // Check if the game is over
         int score = evaluate(board);
         
@@ -503,12 +504,23 @@ public class Board extends MouseAdapter {
                         board[j][i].setPiece(new Piece("O", i + 1, j + 1));
                         
                         // Call minimax recursively and choose the maximum value
-                        best = Math.max(best, minimax(board, depth + 1, !isMaximizing));
+                        best = Math.max(best, minimax(board, depth + 1, !isMaximizing, alpha, beta));
                         
                         // Undo the move
                         board[j][i].setPiece(new Piece(" ", i + 1, j + 1));
+                        
+                        // Alpha-Beta Pruning
+                        alpha = Math.max(alpha, best);
+                        
+                        // Alpha-Beta Cutoff
+                        if (beta <= alpha)
+                            break;
                     }
                 }
+                
+                // Alpha-Beta Cutoff
+                if (beta <= alpha)
+                    break;
             }
             return best;
         } else {
@@ -523,12 +535,23 @@ public class Board extends MouseAdapter {
                         board[j][i].setPiece(new Piece("X", i + 1, j + 1));
                         
                         // Call minimax recursively and choose the minimum value
-                        best = Math.min(best, minimax(board, depth + 1, !isMaximizing));
+                        best = Math.min(best, minimax(board, depth + 1, !isMaximizing, alpha, beta));
                         
                         // Undo the move
                         board[j][i].setPiece(new Piece(" ", i + 1, j + 1));
+                        
+                        // Alpha-Beta Pruning
+                        beta = Math.min(beta, best);
+                        
+                        // Alpha-Beta Cutoff
+                        if (beta <= alpha)
+                            break;
                     }
                 }
+                
+                // Alpha-Beta Cutoff
+                if (beta <= alpha)
+                    break;
             }
             return best;
         }
